@@ -2,11 +2,12 @@ import os
 from typing import List
 from enum import IntEnum
 
-import cv2 as cv
 import numpy as np
 from pydicom import dcmread
 from pydicom.dataset import Dataset
 from pydicom.sequence import Sequence
+from skimage.draw import line_aa, polygon2mask
+from skimage.measure import find_contours
 
 from rt_utils.utils import ROIData, SOPClassUID
 
@@ -60,7 +61,7 @@ def get_contours_coords(roi_data: ROIData, series_data):
             mask_slice = create_pin_hole_mask(mask_slice, roi_data.approximate_contours)
 
         # Get contours from mask
-        contours, _ = find_mask_contours(mask_slice, roi_data.approximate_contours)
+        contours = find_mask_contours(mask_slice, roi_data.approximate_contours)
         validate_contours(contours)
 
         # Format for DICOM
@@ -83,21 +84,7 @@ def get_contours_coords(roi_data: ROIData, series_data):
 
 
 def find_mask_contours(mask: np.ndarray, approximate_contours: bool):
-    approximation_method = (
-        cv.CHAIN_APPROX_SIMPLE if approximate_contours else cv.CHAIN_APPROX_NONE
-    )
-    contours, hierarchy = cv.findContours(
-        mask.astype(np.uint8), cv.RETR_TREE, approximation_method
-    )
-    # Format extra array out of data
-    contours = list(
-        contours
-    )  # Open-CV updated contours to be a tuple so we convert it back into a list here
-    for i, contour in enumerate(contours):
-        contours[i] = [[pos[0][0], pos[0][1]] for pos in contour]
-    hierarchy = hierarchy[0]  # Format extra array out of data
-
-    return contours, hierarchy
+    return find_contours(mask, level=None, fully_connected='low', positive_orientation='low')
 
 
 def create_pin_hole_mask(mask: np.ndarray, approximate_contours: bool):
@@ -106,19 +93,13 @@ def create_pin_hole_mask(mask: np.ndarray, approximate_contours: bool):
     This is done so that a given region can be represented by a single contour.
     """
 
-    contours, hierarchy = find_mask_contours(mask, approximate_contours)
+    contours = find_mask_contours(mask, approximate_contours)
     pin_hole_mask = mask.copy()
 
     # Iterate through the hierarchy, for child nodes, draw a line upwards from the first point
-    for i, array in enumerate(hierarchy):
-        parent_contour_index = array[Hierarchy.parent_node]
-        if parent_contour_index == -1:
-            continue  # Contour is not a child
-
-        child_contour = contours[i]
-
+    for child_contour in contours:
         line_start = tuple(child_contour[0])
-
+        
         pin_hole_mask = draw_line_upwards_from_point(
             pin_hole_mask, line_start, fill_value=0
         )
@@ -130,10 +111,12 @@ def draw_line_upwards_from_point(
 ) -> np.ndarray:
     line_width = 2
     end = (start[0], start[1] - 1)
-    mask = mask.astype(np.uint8)  # Type that OpenCV expects
+    mask = mask.astype(np.uint8)
     # Draw one point at a time until we hit a point that already has the desired value
     while mask[end] != fill_value:
-        cv.line(mask, start, end, fill_value, line_width)
+        # @TODO: We do not use line_width here, but I doubt it might not be needed 
+        rr, cc, val = line_aa(start[0], start[1], end[0], end[1])
+        mask[rr, cc] = fill_value
 
         # Update start and end to the next positions
         start = end
@@ -241,11 +224,12 @@ def create_series_mask_from_contour_sequence(series_data, contour_sequence: Sequ
     transformation_matrix = get_patient_to_pixel_transformation_matrix(series_data)
 
     # Iterate through each slice of the series, If it is a part of the contour, add the contour mask
+    image_shape = mask.shape[:2]
     for i, series_slice in enumerate(series_data):
         slice_contour_data = get_slice_contour_data(series_slice, contour_sequence)
         if len(slice_contour_data):
             mask[:, :, i] = get_slice_mask_from_slice_contour_data(
-                series_slice, slice_contour_data, transformation_matrix
+                series_slice, slice_contour_data, transformation_matrix, image_shape
             )
     return mask
 
@@ -263,7 +247,7 @@ def get_slice_contour_data(series_slice: Dataset, contour_sequence: Sequence):
 
 
 def get_slice_mask_from_slice_contour_data(
-    series_slice: Dataset, slice_contour_data, transformation_matrix: np.ndarray
+    series_slice: Dataset, slice_contour_data, transformation_matrix: np.ndarray, image_shape: np.ndarray
 ):
     # Go through all contours in a slice, create polygons in correct space and with a correct format 
     # and append to polygons array (appropriate for fillPoly) 
@@ -274,9 +258,11 @@ def get_slice_mask_from_slice_contour_data(
         polygon = [np.around([translated_contour_data[:, :2]]).astype(np.int32)]
         polygon = np.array(polygon).squeeze()
         polygons.append(polygon)
+    
     slice_mask = create_empty_slice_mask(series_slice).astype(np.uint8)
-    cv.fillPoly(img=slice_mask, pts = polygons, color = 1)
+    slice_mask = polygon2mask(image_shape=image_shape, polygon=polygon)
     return slice_mask
+
 
 def create_empty_series_mask(series_data):
     ref_dicom_image = series_data[0]
@@ -293,14 +279,3 @@ def create_empty_slice_mask(series_slice):
     mask_dims = (int(series_slice.Columns), int(series_slice.Rows))
     mask = np.zeros(mask_dims).astype(bool)
     return mask
-
-
-class Hierarchy(IntEnum):
-    """
-    Enum class for what the positions in the OpenCV hierarchy array mean
-    """
-
-    next_node = 0
-    previous_node = 1
-    first_child = 2
-    parent_node = 3
