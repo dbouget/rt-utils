@@ -7,7 +7,7 @@ with open("requirements.txt") as f:
     required = f.read().splitlines()
 
 setuptools.setup(
-    name="rt-utils",
+    name="rtutils",
     version=VERSION,
     author="Asim Shrestha",
     author_email="asim.shrestha@hotmail.com",
