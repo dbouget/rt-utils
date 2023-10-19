@@ -15,8 +15,8 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/qurit/rtutils",
-    package_dir={'':"rt_utils"},
-    packages=setuptools.find_packages("rt_utils", exclude="tests"),
+    package_dir={'':"rtutils"},
+    packages=setuptools.find_packages("rtutils", exclude="tests"),
     keywords=["RTStruct", "Dicom", "Pydicom"],
     classifiers=[
         "Operating System :: OS Independent",

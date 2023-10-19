@@ -1,6 +1,6 @@
 import datetime
-from rt_utils.image_helper import get_contours_coords
-from rt_utils.utils import ROIData, SOPClassUID
+from rtutils.image_helper import get_contours_coords
+from rtutils.utils import ROIData, SOPClassUID
 import numpy as np
 from pydicom.uid import generate_uid
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
@@ -21,7 +21,7 @@ def create_rtstruct_dataset(series_data) -> FileDataset:
 
 
 def generate_base_dataset() -> FileDataset:
-    file_name = "rt-utils-struct"
+    file_name = "rtutils-struct"
     file_meta = get_file_meta()
     ds = FileDataset(file_name, {}, file_meta=file_meta, preamble=b"\0" * 128)
     add_required_elements_to_ds(ds)
@@ -53,7 +53,7 @@ def add_required_elements_to_ds(ds: FileDataset):
     ds.StructureSetTime = dt.strftime("%H%M%S.%f")
     ds.Modality = "RTSTRUCT"
     ds.Manufacturer = "Qurit"
-    ds.ManufacturerModelName = "rt-utils"
+    ds.ManufacturerModelName = "rtutils"
     ds.InstitutionName = "Qurit"
     # Set the transfer syntax
     ds.is_little_endian = True

@@ -9,7 +9,7 @@ from pydicom.sequence import Sequence
 from skimage.draw import line_aa, polygon2mask
 from skimage.measure import find_contours
 
-from rt_utils.utils import ROIData, SOPClassUID
+from rtutils.utils import ROIData, SOPClassUID
 
 
 def load_sorted_image_series(dicom_series_path: str):

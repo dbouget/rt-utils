@@ -4,7 +4,7 @@ from pydicom.filereader import dcmread
 
 import warnings
 
-from rt_utils.utils import SOPClassUID
+from rtutils.utils import SOPClassUID
 from . import ds_helper, image_helper
 from .rtstruct import RTStruct
 
