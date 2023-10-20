@@ -62,6 +62,9 @@ def get_contours_coords(roi_data: ROIData, series_data):
 
         # Get contours from mask
         contours = find_mask_contours(mask_slice, roi_data.approximate_contours)
+        # Re-ordering to match the output order from opencv
+        for c in range(len(contours)):
+            contours[c] = list([[x[1], x[0]] for x in contours[c]])
         validate_contours(contours)
 
         # Format for DICOM

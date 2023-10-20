@@ -1,7 +1,7 @@
-from rt_utils.rtstruct import RTStruct
+from rtutils.rtstruct import RTStruct
 import pytest
 import os
-from rt_utils import RTStructBuilder
+from rtutils import RTStructBuilder
 
 
 @pytest.fixture()

@@ -1,5 +1,5 @@
 import pytest
-from rt_utils import ds_helper, image_helper
+from rtutils import ds_helper, image_helper
 
 
 def test_correctly_acquire_optional_ds_field(series_path):
